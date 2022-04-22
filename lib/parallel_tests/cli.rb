@@ -320,6 +320,14 @@ module ParallelTests
         raise "Can't pass --specify-groups with any of these keys: --single, --isolate, or --isolate-n"
       end
 
+      if options[:single_process_tag] && options[:group_by] != :scenarios
+        raise "--single-tag can only be used with --group-by scenarios"
+      end
+
+      if options[:single_process] && options[:single_process_tag]
+        raise "You can specify either --single-tag (for group-by scenarios) or --single (for other grouping) but not both"
+      end
+
       options
     end
 

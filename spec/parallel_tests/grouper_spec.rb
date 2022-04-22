@@ -34,92 +34,114 @@ describe ParallelTests::Grouper do
   end
 
   describe '.in_even_groups_by_size' do
-    let(:files_with_size) { { "1" => 1, "2" => 2, "3" => 3, "4" => 4, "5" => 5 } }
-
     def call(num_groups, options = {})
-      ParallelTests::Grouper.in_even_groups_by_size(files_with_size, num_groups, options)
+      ParallelTests::Grouper.in_even_groups_by_size(test_items, num_groups, options)
     end
 
-    it "groups 1 by 1 for same groups as size" do
-      expect(call(5)).to eq([["5"], ["4"], ["3"], ["2"], ["1"]])
+    context "when files with size passed" do
+      let(:test_items) { { "1" => 1, "2" => 2, "3" => 3, "4" => 4, "5" => 5 } }
+
+      it "groups 1 by 1 for same groups as size" do
+        expect(call(5)).to eq([["5"], ["4"], ["3"], ["2"], ["1"]])
+      end
+
+      it "groups into even groups" do
+        expect(call(2)).to eq([["1", "2", "5"], ["3", "4"]])
+      end
+
+      it "groups into a single group" do
+        expect(call(1)).to eq([["1", "2", "3", "4", "5"]])
+      end
+
+      it "adds empty groups if there are more groups than feature files" do
+        expect(call(6)).to eq([["5"], ["4"], ["3"], ["2"], ["1"], []])
+      end
+
+      it "groups single items into first group" do
+        expect(call(2, single_process: [/1|2|3|4/])).to eq([["1", "2", "3", "4"], ["5"]])
+      end
+
+      it "groups single items into specified isolation groups" do
+        expect(call(3, single_process: [/1|2|3|4/], isolate_count: 2)).to eq([["1", "4"], ["2", "3"], ["5"]])
+      end
+
+      it "groups single items with others if there are too few" do
+        expect(call(2, single_process: [/1/])).to eq([["1", "3", "4"], ["2", "5"]])
+      end
+
+      it "groups must abort when isolate_count is out of bounds" do
+        expect do
+          call(3, single_process: [/1/], isolate_count: 3)
+        end.to raise_error(
+                 "Number of isolated processes must be less than total the number of processes"
+               )
+      end
+
+      it "groups specify_groups as specified when specify_groups is just one spec" do
+        expect(call(3, specify_groups: '1')).to eq([["1"], ["2", "5"], ["3", "4"]])
+      end
+
+      it "groups specify_groups as specified when specify_groups is just multiple specs in one process" do
+        expect(call(3, specify_groups: '3,1')).to eq([["3", "1"], ["5"], ["2", "4"]])
+      end
+
+      it "groups specify_groups as specified when specify_groups is multiple specs" do
+        expect(call(3, specify_groups: '1,2|4')).to eq([["1", "2"], ["4"], ["3", "5"]])
+      end
+
+      it "specify_groups aborts when number of specs separated by pipe is out of bounds" do
+        expect do
+          call(3, specify_groups: '1|2|3|4')
+        end.to raise_error(
+                 "Number of processes separated by pipe must be less than or equal to the total number of processes"
+               )
+      end
+
+      it "specify_groups aborts when spec passed in doesnt match existing specs" do
+        expect do
+          call(3, specify_groups: '1|2|6')
+        end.to raise_error(
+                 "Could not find [\"6\"] from --specify-groups in the selected files & folders"
+               )
+      end
+
+      it "specify_groups aborts when spec passed in doesnt match existing specs again" do
+        expect do
+          call(3, specify_groups: '1,6|2')
+        end.to raise_error(
+                 "Could not find [\"6\"] from --specify-groups in the selected files & folders"
+               )
+      end
+
+      it "specify_groups aborts when number of specs is equal to number passed in" do
+        expect do
+          call(3, specify_groups: '1|2|3')
+        end.to raise_error(/The specs that aren't run:\n\["4", "5"\]/)
+      end
+
+      it "specify_groups does not abort when the every single spec is specified in it" do
+        expect(call(3, specify_groups: '1,2|3,4|5')).to eq([["1", "2"], ["3", "4"], ["5"]])
+      end
     end
 
-    it "groups into even groups" do
-      expect(call(2)).to eq([["1", "2", "5"], ["3", "4"]])
-    end
+    context "when cucumber scenarios passed" do
+      let(:test_items) { [["1", ["@a", "@single"]], ["2", ["@b", "@single"]], ["3", ["@c"]], ["4", ["@d"]], ["5", ["@e"]], ["6", ["@f"]]] }
 
-    it "groups into a single group" do
-      expect(call(1)).to eq([["1", "2", "3", "4", "5"]])
-    end
+      it "groups into even groups" do
+        expect(call(2)).to eq([["1", "3", "5"], ["2", "4", "6"]])
+      end
 
-    it "adds empty groups if there are more groups than feature files" do
-      expect(call(6)).to eq([["5"], ["4"], ["3"], ["2"], ["1"], []])
-    end
+      it "groups single items into single group" do
+        expect(call(2, single_process_tag: "@single")).to eq([["1", "2", "5"], ["3", "4", "6"]])
+      end
 
-    it "groups single items into first group" do
-      expect(call(2, single_process: [/1|2|3|4/])).to eq([["1", "2", "3", "4"], ["5"]])
-    end
+      it "groups isolated single items into separate group" do
+        expect(call(2, single_process_tag: "@single", isolate: true)).to eq([["1", "2"], ["3", "4", "5", "6"]])
+      end
 
-    it "groups single items into specified isolation groups" do
-      expect(call(3, single_process: [/1|2|3|4/], isolate_count: 2)).to eq([["1", "4"], ["2", "3"], ["5"]])
-    end
-
-    it "groups single items with others if there are too few" do
-      expect(call(2, single_process: [/1/])).to eq([["1", "3", "4"], ["2", "5"]])
-    end
-
-    it "groups must abort when isolate_count is out of bounds" do
-      expect do
-        call(3, single_process: [/1/], isolate_count: 3)
-      end.to raise_error(
-        "Number of isolated processes must be less than total the number of processes"
-      )
-    end
-
-    it "groups specify_groups as specified when specify_groups is just one spec" do
-      expect(call(3, specify_groups: '1')).to eq([["1"], ["2", "5"], ["3", "4"]])
-    end
-
-    it "groups specify_groups as specified when specify_groups is just multiple specs in one process" do
-      expect(call(3, specify_groups: '3,1')).to eq([["3", "1"], ["5"], ["2", "4"]])
-    end
-
-    it "groups specify_groups as specified when specify_groups is multiple specs" do
-      expect(call(3, specify_groups: '1,2|4')).to eq([["1", "2"], ["4"], ["3", "5"]])
-    end
-
-    it "specify_groups aborts when number of specs separated by pipe is out of bounds" do
-      expect do
-        call(3, specify_groups: '1|2|3|4')
-      end.to raise_error(
-        "Number of processes separated by pipe must be less than or equal to the total number of processes"
-      )
-    end
-
-    it "specify_groups aborts when spec passed in doesnt match existing specs" do
-      expect do
-        call(3, specify_groups: '1|2|6')
-      end.to raise_error(
-        "Could not find [\"6\"] from --specify-groups in the selected files & folders"
-      )
-    end
-
-    it "specify_groups aborts when spec passed in doesnt match existing specs again" do
-      expect do
-        call(3, specify_groups: '1,6|2')
-      end.to raise_error(
-        "Could not find [\"6\"] from --specify-groups in the selected files & folders"
-      )
-    end
-
-    it "specify_groups aborts when number of specs is equal to number passed in" do
-      expect do
-        call(3, specify_groups: '1|2|3')
-      end.to raise_error(/The specs that aren't run:\n\["4", "5"\]/)
-    end
-
-    it "specify_groups does not abort when the every single spec is specified in it" do
-      expect(call(3, specify_groups: '1,2|3,4|5')).to eq([["1", "2"], ["3", "4"], ["5"]])
+      it "groups into even groups when there are no items matching specified tag" do
+        expect(call(2, single_process_tag: "@missing")).to eq([["1", "3", "5"], ["2", "4", "6"]])
+      end
     end
   end
 

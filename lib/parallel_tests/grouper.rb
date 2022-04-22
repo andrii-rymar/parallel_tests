@@ -104,10 +104,6 @@ module ParallelTests
         end
       end
 
-      def largest_first(files)
-        files.sort_by { |_item, size| size }.reverse
-      end
-
       def smallest_group(groups)
         groups.min_by { |g| g[:size] }
       end
@@ -128,15 +124,14 @@ module ParallelTests
       end
 
       def separate_single_items(items, options)
-        items.partition { |item| to_single_items?(item, options) }
+        items.partition { |item| single_item?(item, options) }
       end
 
-      def to_single_items?(item, options)
+      def single_item?(item, options)
         if options[:single_process]
-          item = item_with_tags?(item) || item_with_size?(item) ? item[0] : item
+          item = item.is_a?(Array) ? item[0] : item
           options[:single_process].any? { |pattern| item =~ pattern }
         elsif options[:single_process_tag]
-          raise "--single-tag option can only be used with '--group-by scenarios'" unless item_with_tags?(item)
           item_tags = item[1]
           item_tags.any? { |tag| tag.match?(options[:single_process_tag]) }
         else
@@ -152,27 +147,28 @@ module ParallelTests
         end
       end
 
+      # prepare tests before placing them into an execution group
+      # expecting items of the next types:
+      # - items/tests with size: [["", 5], ...]
+      # - Gherkin scenarios: [["example.feature:4", ["@tag1", "@tag2"]], ...]
+      # - plain strings/locations: ["", ...]
       def items_to_group(items)
-        return items_without_tags(items) if items_with_tags?(items)
         return largest_first(items) if items_with_size?(items)
+        return items_without_tags(items) if scenario_items?(items)
 
         items
       end
 
-      def items_with_tags?(items)
-        items.first.is_a?(Array) && item_with_tags?(items.first)
-      end
-
       def items_with_size?(items)
-        items.first.is_a?(Array) && item_with_size?(items.first)
+        items.any? { |item| item.is_a?(Array) && item[1].is_a?(Numeric) }
       end
 
-      def item_with_tags?(item)
-        item[1].is_a?(Array)
+      def scenario_items?(items)
+        items.any? { |item| item.is_a?(Array) && item[1].is_a?(Array) }
       end
 
-      def item_with_size?(item)
-        item[1].is_a?(Numeric)
+      def largest_first(files)
+        files.sort_by { |_item, size| size }.reverse
       end
 
       def items_without_tags(items)

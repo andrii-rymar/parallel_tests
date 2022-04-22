@@ -29,10 +29,10 @@ describe ParallelTests::Cucumber::Scenarios do
     it 'returns all the scenarios' do
       scenarios = ParallelTests::Cucumber::Scenarios.all([feature_file.path])
       expect(scenarios).to eq [
-        "#{feature_file.path}:3",
-        "#{feature_file.path}:6",
-        "#{feature_file.path}:13",
-        "#{feature_file.path}:14"
+        ["#{feature_file.path}:3", []],
+        ["#{feature_file.path}:6", []],
+        ["#{feature_file.path}:13", []],
+        ["#{feature_file.path}:14", []]
       ]
     end
   end
@@ -40,7 +40,7 @@ describe ParallelTests::Cucumber::Scenarios do
   context 'with line numbers' do
     it 'only returns scenarios that match the provided lines' do
       scenarios = ParallelTests::Cucumber::Scenarios.all(["#{feature_file.path}:6:14"])
-      expect(scenarios).to eq ["#{feature_file.path}:6", "#{feature_file.path}:14"]
+      expect(scenarios).to eq [["#{feature_file.path}:6", []], ["#{feature_file.path}:14", []]]
     end
   end
 
@@ -70,7 +70,7 @@ describe ParallelTests::Cucumber::Scenarios do
               Examples:
                 | colour  |
                 | magenta |
-                | fuschia |
+                | fuchsia |
 
               @green
               Examples:
@@ -84,6 +84,19 @@ describe ParallelTests::Cucumber::Scenarios do
         EOS
         feature.rewind
       end
+    end
+
+    it 'returns all scenarios with correct tags' do
+      scenarios = ParallelTests::Cucumber::Scenarios.all([feature_file.path])
+      expect(scenarios).to eq [
+        ["#{feature_file.path}:5", ["@colours", "@black"]],
+        ["#{feature_file.path}:9", ["@colours", "@white"]],
+        ["#{feature_file.path}:13", ["@colours", "@black", "@white"]],
+        ["#{feature_file.path}:22", ["@colours", "@red", "@blue"]],
+        ["#{feature_file.path}:23", ["@colours", "@red", "@blue"]],
+        ["#{feature_file.path}:28", ["@colours", "@red", "@green"]],
+        ["#{feature_file.path}:33", ["@colours", "@red", "@blue", "@green"]]
+      ]
     end
 
     it 'Single Feature Tag: colours' do

@@ -128,6 +128,16 @@ describe ParallelTests::CLI do
       end
     end
 
+    context "single tag" do
+      it "fails if --group-by scenarios is missing" do
+        expect { call(["test", "--single-tag", '@first']) }.to raise_error(RuntimeError)
+      end
+
+      it "fails if both --single and --single-tag are present" do
+        expect { call(["test", "--single", '1', '--single-tag', '@first']) }.to raise_error(RuntimeError)
+      end
+    end
+
     context "specify groups" do
       it "groups can be just one string" do
         expect(call(["test", "--specify-groups", 'test'])).to eq(defaults.merge(specify_groups: 'test'))

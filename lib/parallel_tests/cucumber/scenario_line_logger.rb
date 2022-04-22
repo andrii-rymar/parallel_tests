@@ -31,7 +31,7 @@ module ParallelTests
                 test_line = row.source_line
                 next if line_numbers.any? && !line_numbers.include?(test_line)
 
-                @scenarios << [[uri, test_line].join(':'), scenario_tags]
+                @scenarios << [[uri, test_line].join(':'), example_tags]
               end
             end
           end
