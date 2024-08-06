@@ -54,7 +54,7 @@ module ParallelTests
           group_features_by_size(items_to_group(items), groups)
         end
 
-        puts "Groups:"
+        puts "Estimated groups:"
         groups.each_with_index do |g, i|
           duration_seconds = g[:size].to_i
           duration_human = "%02d:%02d" % [duration_seconds / 60 % 60, duration_seconds % 60]
