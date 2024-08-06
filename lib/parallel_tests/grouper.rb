@@ -54,9 +54,11 @@ module ParallelTests
           group_features_by_size(items_to_group(items), groups)
         end
 
-        p "Groups:"
+        puts "Groups:"
         groups.each_with_index do |g, i|
-          p "##{i}: #{g[:items].size} tests, #{g[:size]}s"
+          duration_seconds = g[:size].to_i
+          duration_human = "%02d:%02d" % [duration_seconds / 60 % 60, duration_seconds % 60]
+          puts "##{i}: #{g[:items].size} tests, #{duration_human}"
         end
 
         groups.map! { |g| g[:items].sort }
