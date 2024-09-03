@@ -12,7 +12,35 @@ module ParallelTests
         in_even_groups_by_size(scenarios, num_groups, options)
       end
 
-      def by_scenarios_runtime(tests, num_groups, options = {})
+      def by_scenario_runtime(tests, num_groups, options = {})
+        ui_scenarios = group_by_scenarios(tests, options.merge(ignore_tag_pattern: "@api"))
+        ui_scenarios_with_size = ParallelTests::Test::Runner.add_size(
+          ui_scenarios,
+          group_by: :runtime,
+          runtime_log: options[:runtime_log],
+          allowed_missing_percent: options[:allowed_missing_percent]
+        )
+        ui_scenarios_duration = ui_scenarios_with_size.sum { |test| test[1] }
+
+        api_scenarios = group_by_scenarios(tests, options.merge(ignore_tag_pattern: "@ui"))
+        api_scenarios_with_size = ParallelTests::Test::Runner.add_size(
+          api_scenarios,
+          group_by: :runtime,
+          runtime_log: options[:runtime_log],
+          allowed_missing_percent: options[:allowed_missing_percent]
+        )
+        api_scenarios_duration = api_scenarios_with_size.sum { |test| test[1] }
+
+        ui_num_groups = (ui_scenarios_duration * num_groups / (ui_scenarios_duration + api_scenarios_duration)).round
+        api_num_groups = num_groups - ui_num_groups
+
+        ui_groups = in_even_groups_by_size(ui_scenarios_with_size, ui_num_groups, options)
+        api_groups = in_even_groups_by_size(api_scenarios_with_size, api_num_groups, options)
+
+        ui_groups + api_groups
+      end
+
+      def old_by_scenarios_runtime(tests, num_groups, options = {})
         scenarios = group_by_scenarios(tests, options)
         scenarios_with_size = ParallelTests::Test::Runner.add_size(
           scenarios,
