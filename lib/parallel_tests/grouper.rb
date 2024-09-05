@@ -26,8 +26,8 @@ module ParallelTests
         puts "UI number: #{ui_num_groups}"
         puts "API number: #{api_num_groups}"
 
-        ui_groups = in_even_groups_by_size(ui_scenarios_with_size, ui_num_groups, options)
-        api_groups = in_even_groups_by_size(api_scenarios_with_size, api_num_groups, options)
+        ui_groups = ui_num_groups > 0 ? in_even_groups_by_size(ui_scenarios_with_size, ui_num_groups, options) : []
+        api_groups = api_num_groups > 0 ? in_even_groups_by_size(api_scenarios_with_size, api_num_groups, options) : []
 
         ui_groups + api_groups
       end
@@ -196,7 +196,7 @@ module ParallelTests
       end
 
       def num_groups(total_num_groups, total_size, partition_size)
-        partition_size.positive? ? [(total_num_groups * (partition_size / total_size)).round, 1].max : 0
+        partition_size > 0 ? [(total_num_groups * (partition_size / total_size)).round, 1].max : 0
       end
     end
   end
