@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 module ParallelTests
   class Grouper
+    API_TAG = "@api"
+    UI_TAG = "@ui"
+
     class << self
       def by_steps(tests, num_groups, options)
         features_with_steps = group_by_features_with_steps(tests, options)
@@ -13,11 +16,11 @@ module ParallelTests
       end
 
       def by_scenarios_runtime(tests, num_groups, options = {})
-        ui_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: "@api"))
-        api_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: "@ui"))
+        ui_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: API_TAG))
+        api_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: UI_TAG))
 
-        ui_scenarios_size = group_size(ui_scenarios_with_size)
-        api_scenarios_size = group_size(api_scenarios_with_size)
+        ui_scenarios_size = partition_size(ui_scenarios_with_size)
+        api_scenarios_size = partition_size(api_scenarios_with_size)
         ui_num_groups, api_num_groups = calculate_num_groups(num_groups, ui_scenarios_size, api_scenarios_size)
 
         puts "UI number: #{ui_num_groups}"
@@ -182,25 +185,29 @@ module ParallelTests
         )
       end
 
-      def calculate_num_groups(total_num_groups, group1_size, group2_size)
-        total_size = group1_size + group2_size
+      def calculate_num_groups(total_num_groups, partition1_size, partition2_size)
+        total_size = partition1_size + partition2_size
 
-        num_group1 = group1_size.positive? ? [(total_num_groups * (group1_size / total_size)).round, 1].max : 0
-        num_group2 = group2_size.positive? ? [(total_num_groups * (group2_size / total_size)).round, 1].max : 0
+        num_groups1 = num_groups(total_num_groups, total_size, partition1_size)
+        num_groups2 = num_groups(total_num_groups, total_size, partition2_size)
 
-        if num_group1 + num_group2 > total_num_groups
-          if num_group1 > num_group2
-            num_group1 -= 1
+        if num_groups1 + num_groups2 > total_num_groups
+          if num_groups1 > num_groups2
+            num_groups1 -= 1
           else
-            num_group2 -= 1
+            num_groups2 -= 1
           end
         end
 
-        [num_group1, num_group2]
+        [num_groups1, num_groups2]
       end
 
-      def group_size(group)
-        group.sum { |test| test[1] }
+      def partition_size(partition)
+        partition.sum { |test| test[1] }
+      end
+
+      def num_groups(total_num_groups, total_size, partition_size)
+        partition_size.positive? ? [(total_num_groups * (partition_size / total_size)).round, 1].max : 0
       end
     end
   end
