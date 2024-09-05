@@ -32,17 +32,6 @@ module ParallelTests
         ui_groups + api_groups
       end
 
-      def old_by_scenarios_runtime(tests, num_groups, options = {})
-        scenarios = group_by_scenarios(tests, options)
-        scenarios_with_size = ParallelTests::Test::Runner.add_size(
-          scenarios,
-          group_by: :runtime,
-          runtime_log: options[:runtime_log],
-          allowed_missing_percent: options[:allowed_missing_percent]
-        )
-        in_even_groups_by_size(scenarios_with_size, num_groups, options)
-      end
-
       def in_even_groups_by_size(items, num_groups, options = {})
         groups = Array.new(num_groups) { { items: [], size: 0 } }
 
