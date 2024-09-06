@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 module ParallelTests
   class Grouper
+    API_TAG = "@api"
+    UI_TAG = "@ui"
+
     class << self
       def by_steps(tests, num_groups, options)
         features_with_steps = group_by_features_with_steps(tests, options)
@@ -13,14 +16,20 @@ module ParallelTests
       end
 
       def by_scenarios_runtime(tests, num_groups, options = {})
-        scenarios = group_by_scenarios(tests, options)
-        scenarios_with_size = ParallelTests::Test::Runner.add_size(
-          scenarios,
-          group_by: :runtime,
-          runtime_log: options[:runtime_log],
-          allowed_missing_percent: options[:allowed_missing_percent]
-        )
-        in_even_groups_by_size(scenarios_with_size, num_groups, options)
+        ui_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: API_TAG))
+        api_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: UI_TAG))
+
+        ui_scenarios_size = partition_size(ui_scenarios_with_size)
+        api_scenarios_size = partition_size(api_scenarios_with_size)
+        ui_num_groups, api_num_groups = calculate_num_groups(num_groups, ui_scenarios_size, api_scenarios_size)
+
+        puts "UI number: #{ui_num_groups}"
+        puts "API number: #{api_num_groups}"
+
+        ui_groups = ui_num_groups > 0 ? in_even_groups_by_size(ui_scenarios_with_size, ui_num_groups, options) : []
+        api_groups = api_num_groups > 0 ? in_even_groups_by_size(api_scenarios_with_size, api_num_groups, options) : []
+
+        ui_groups + api_groups
       end
 
       def in_even_groups_by_size(items, num_groups, options = {})
@@ -58,7 +67,7 @@ module ParallelTests
         groups.each_with_index do |g, i|
           duration_seconds = g[:size].to_i
           duration_human = "%02d:%02d" % [duration_seconds / 60 % 60, duration_seconds % 60]
-          puts "##{i}: #{g[:items].size} tests, #{duration_human}"
+          puts "##{i+1}: #{g[:items].size} tests, #{duration_human}"
         end
 
         groups.map! { |g| g[:items].sort }
@@ -153,6 +162,41 @@ module ParallelTests
 
       def items_to_group(items)
         items.first && items.first.size == 2 ? largest_first(items) : items
+      end
+
+      def scenarios_with_size(tests, options)
+        scenarios = group_by_scenarios(tests, options)
+        ParallelTests::Test::Runner.add_size(
+          scenarios,
+          group_by: :runtime,
+          runtime_log: options[:runtime_log],
+          allowed_missing_percent: options[:allowed_missing_percent]
+        )
+      end
+
+      def calculate_num_groups(total_num_groups, partition1_size, partition2_size)
+        total_size = partition1_size + partition2_size
+
+        num_groups1 = num_groups(total_num_groups, total_size, partition1_size)
+        num_groups2 = num_groups(total_num_groups, total_size, partition2_size)
+
+        if num_groups1 + num_groups2 > total_num_groups
+          if num_groups1 > num_groups2
+            num_groups1 -= 1
+          else
+            num_groups2 -= 1
+          end
+        end
+
+        [num_groups1, num_groups2]
+      end
+
+      def partition_size(partition)
+        partition.sum { |test| test[1] }
+      end
+
+      def num_groups(total_num_groups, total_size, partition_size)
+        partition_size > 0 ? [(total_num_groups * (partition_size / total_size)).round, 1].max : 0
       end
     end
   end
