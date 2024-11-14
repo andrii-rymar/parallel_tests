@@ -18,6 +18,8 @@ module ParallelTests
       def by_scenarios_runtime(tests, num_groups, options = {})
         return single_group(tests, options) if num_groups == 1
 
+        return cloned_groups(tests, num_groups, options) if options[:performance_tests]
+
         ui_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: API_TAG))
         api_scenarios_with_size = scenarios_with_size(tests, options.merge(ignore_tag_pattern: UI_TAG))
 
@@ -79,6 +81,10 @@ module ParallelTests
 
       def single_group(tests, options)
         in_even_groups_by_size(scenarios_with_size(tests, options), 1, options)
+      end
+
+      def cloned_groups(tests, num_groups, options)
+        single_group(tests, options) * num_groups
       end
 
       def specify_groups(items, num_groups, options, groups)
