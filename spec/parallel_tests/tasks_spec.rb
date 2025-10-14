@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 require 'spec_helper'
 require 'parallel_tests/tasks'
+require 'rspec/support/spec/shell_out'
 
 describe ParallelTests::Tasks do
   describe ".parse_args" do
@@ -42,13 +43,22 @@ describe ParallelTests::Tasks do
   end
 
   describe ".rails_env" do
-    it "should be test" do
+    include RSpec::Support::ShellOut
+
+    it "is test when nothing was set" do
       expect(ParallelTests::Tasks.rails_env).to eq("test")
     end
 
-    it "should disregard whatever was set" do
-      ENV["RAILS_ENV"] = "foo"
-      expect(ParallelTests::Tasks.rails_env).to eq("test")
+    it "ignores RAILS_ENV since that is often set when rake is executed" do
+      with_env "RAILS_ENV" => "bar" do
+        expect(ParallelTests::Tasks.rails_env).to eq("test")
+      end
+    end
+
+    it "uses PARALLEL_RAILS_ENV" do
+      with_env "PARALLEL_RAILS_ENV" => "bar" do
+        expect(ParallelTests::Tasks.rails_env).to eq("bar")
+      end
     end
   end
 
@@ -202,19 +212,19 @@ describe ParallelTests::Tasks do
   end
 
   describe ".purge_before_load" do
-    context 'Rails < 4.2.0' do
+    context 'ActiveRecord < 4.2.0' do
       before do
-        stub_const('Rails', double(version: '3.2.1'))
+        stub_const('ActiveRecord', double(version: Gem::Version.new('3.2.1')))
       end
 
-      it "should return nil for Rails < 4.2.0" do
+      it "should return nil for ActiveRecord < 4.2.0" do
         expect(ParallelTests::Tasks.purge_before_load).to eq nil
       end
     end
 
-    context 'Rails > 4.2.0' do
+    context 'ActiveRecord > 4.2.0' do
       before do
-        stub_const('Rails', double(version: '4.2.8'))
+        stub_const('ActiveRecord', double(version: Gem::Version.new('4.2.8')))
       end
 
       it "should return db:purge when defined" do
