@@ -303,7 +303,6 @@ module ParallelTests
           puts opts
           exit 0
         end
-        opts.on("--performance-tests") { options[:performance_tests] = true }
       end.parse!(argv)
 
       raise "Both options are mutually exclusive: verbose & quiet" if options[:verbose] && options[:quiet]
