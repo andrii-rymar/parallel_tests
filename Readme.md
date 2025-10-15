@@ -101,17 +101,23 @@ require "parallel_tests"
 
 # preparation:
 # affected by race-condition: first process may boot slower than the second
-# either sleep a bit or use a lock for example File.lock
-ParallelTests.first_process? ? do_something : sleep(1)
+# the Process.ppid will be the pod of the process that started the parallel tests
+# when not using TEST_ENV_NUMBER we use a unique file per process because ppid would be the users shell
+done = "/tmp/parallel-setup-done-#{ENV['TEST_ENV_NUMBER'] ? Process.ppid : Process.pid}"
+if ParallelTests.first_process?
+  do_something
+  File.write done, "true"
+else
+  sleep 0.1 until File.exist?(done)
+end
 
 # cleanup:
-# last_process? does NOT mean last finished process, just last started
-ParallelTests.last_process? ? do_something : sleep(1)
-
+# could also use last_process? but that is just the last process to start, not the last to finish
 at_exit do
   if ParallelTests.first_process?
-    ParallelTests.wait_for_other_processes_to_finish
-    undo_something
+     File.unlink done
+     ParallelTests.wait_for_other_processes_to_finish
+     undo_something
   end
 end
 ```
@@ -129,7 +135,7 @@ Test groups will often run for different times, making the full test run as slow
 
 ### RSpec
 
-Rspec: Add to your `.rspec_parallel` (or `.rspec`) :
+Rspec: Add to your `.rspec_parallel` (or `.rspec`), but can also be used via `--test-options='--format x'`:
 
     --format progress
     --format ParallelTests::RSpec::RuntimeLogger --out tmp/parallel_runtime_rspec.log
@@ -154,7 +160,7 @@ RSpec: SummaryLogger
 
 Log the test output without the different processes overwriting each other.
 
-Add the following to your `.rspec_parallel` (or `.rspec`) :
+Add the following to your `.rspec_parallel` (or `.rspec`), but can also be used via `--test-options='--format x'`:
 
     --format progress
     --format ParallelTests::RSpec::SummaryLogger --out tmp/spec_summary.log
@@ -168,7 +174,7 @@ Produce pasteable command-line snippets for each failed example. For example:
 rspec /path/to/my_spec.rb:123 # should do something
 ```
 
-Add to `.rspec_parallel` or use as CLI flag:
+Add the following to your `.rspec_parallel` (or `.rspec`), but can also be used via `--test-options='--format x'`:
 
     --format progress
     --format ParallelTests::RSpec::FailuresLogger --out tmp/failing_specs.log
@@ -188,7 +194,7 @@ Prints a single line for starting and finishing each example, to see what is cur
 [14402] [1] [PASSED] Bar bar
 ```
 
-Add to `.rspec_parallel` or use as CLI flag:
+Add the following to your `.rspec_parallel` (or `.rspec`), but can also be used via `--test-options='--format x'`:
 
       --format ParallelTests::RSpec::VerboseLogger
 
@@ -205,6 +211,8 @@ Usage:
 Or add the formatter to the `parallel:` profile of your `cucumber.yml`:
 
     parallel: --format progress --format ParallelTests::Cucumber::FailuresLogger --out tmp/cucumber_failures.log
+
+but can also be used via `--test-options='--format x'`:
 
 Note if your `cucumber.yml` default profile uses `<%= std_opts %>` you may need to insert this as follows `parallel: <%= std_opts %> --format progress...`
 
@@ -237,37 +245,42 @@ Setup for non-rails
     `parallel_cucumber -n 2 -o '-p foo_profile --tags @only_this_tag or @only_that_tag --format summary'`
 
 Options are:
-<!-- copy output from bundle exec ./bin/parallel_test -h -->
-    -n [PROCESSES]                   How many processes to use, default: available CPUs
-    -p, --pattern [PATTERN]          run tests matching this regex pattern
-        --exclude-pattern [PATTERN]  exclude tests matching this regex pattern
-        --group-by [TYPE]            group tests by:
+<!-- rake readme -->
+    -n PROCESSES                     How many processes to use, default: available CPUs
+    -p, --pattern PATTERN            run tests matching this regex pattern
+        --exclude-pattern PATTERN    exclude tests matching this regex pattern
+        --group-by TYPE              group tests by:
                                      found - order of finding files
                                      steps - number of cucumber/spinach steps
                                      scenarios - individual cucumber scenarios
                                      filesize - by size of the file
                                      runtime - info from runtime log
                                      default - runtime when runtime log is filled otherwise filesize
-    -m, --multiply-processes [FLOAT] use given number as a multiplier of processes to run
-    -s, --single [PATTERN]           Run all matching files in the same process
+    -m, --multiply-processes COUNT   use given number as a multiplier of processes to run
+    -s, --single PATTERN             Run all matching files in the same process
     -i, --isolate                    Do not run any other tests in the group used by --single(-s)
-        --isolate-n [PROCESSES]      Use 'isolate'  singles with number of processes, default: 1
+        --isolate-n PROCESSES        Use 'isolate'  singles with number of processes, default: 1
         --highest-exit-status        Exit with the highest exit status provided by test run(s)
-        --failure-exit-code [INT]    Specify the exit code to use when tests fail
-        --specify-groups [SPECS]     Use 'specify-groups' if you want to specify multiple specs running in multiple
+        --failure-exit-code INT      Specify the exit code to use when tests fail
+        --specify-groups SPECS       Use 'specify-groups' if you want to specify multiple specs running in multiple
                                      processes in a specific formation. Commas indicate specs in the same process,
-                                     pipes indicate specs in a new process. Cannot use with --single, --isolate, or
+                                     pipes indicate specs in a new process. If SPECS is a '-' the value for this
+                                     option is read from STDIN instead. Cannot use with --single, --isolate, or
                                      --isolate-n.  Ex.
                                      $ parallel_tests -n 3 . --specify-groups '1_spec.rb,2_spec.rb|3_spec.rb'
                                        Process 1 will contain 1_spec.rb and 2_spec.rb
                                        Process 2 will contain 3_spec.rb
                                        Process 3 will contain all other specs
-        --only-group INT[,INT]       Only run the given group numbers.
+        --only-group GROUP_INDEX[,GROUP_INDEX]
+                                     Only run the given group numbers.
                                      Changes `--group-by` default to 'filesize'.
-    -e, --exec [COMMAND]             execute this code parallel and with ENV['TEST_ENV_NUMBER']
-    -o, --test-options '[OPTIONS]'   execute test commands with those options
-    -t, --type [TYPE]                test(default) / rspec / cucumber / spinach
-        --suffix [PATTERN]           override built in test file pattern (should match suffix):
+    -e, --exec COMMAND               execute COMMAND in parallel and with ENV['TEST_ENV_NUMBER']
+        --exec-args COMMAND          execute COMMAND in parallel with test files as arguments, for example:
+                                     $ parallel_tests --exec-args echo
+                                     > echo spec/a_spec.rb spec/b_spec.rb
+    -o, --test-options 'OPTIONS'     execute test commands with those options
+    -t, --type TYPE                  test(default) / rspec / cucumber / spinach
+        --suffix PATTERN             override built in test file pattern (should match suffix):
                                      '_spec.rb$' - matches rspec files
                                      '_(test|spec).rb$' - matches test or spec files
         --serialize-stdout           Serialize stdout output, nothing will be written until everything is done
@@ -276,14 +289,17 @@ Options are:
         --combine-stderr             Combine stderr into stdout, useful in conjunction with --serialize-stdout
         --non-parallel               execute same commands but do not in parallel, needs --exec
         --no-symlinks                Do not traverse symbolic links to find test files
-        --ignore-tags [PATTERN]      When counting steps ignore scenarios with tags that match this pattern
+        --ignore-tags PATTERN        When counting steps ignore scenarios with tags that match this pattern
         --nice                       execute test commands with low priority.
-        --runtime-log [PATH]         Location of previously recorded test runtimes
-        --allowed-missing [INT]      Allowed percentage of missing runtimes (default = 50)
+        --runtime-log PATH           Location of previously recorded test runtimes
+        --allowed-missing COUNT      Allowed percentage of missing runtimes (default = 50)
         --allow-duplicates           When detecting files to run, allow duplicates
-        --unknown-runtime [FLOAT]    Use given number as unknown runtime (otherwise use average time)
+        --unknown-runtime SECONDS    Use given number as unknown runtime (otherwise use average time)
         --first-is-1                 Use "1" as TEST_ENV_NUMBER to not reuse the default test environment
         --fail-fast                  Stop all groups when one group fails (best used with --test-options '--fail-fast' if supported
+        --test-file-limit LIMIT      Limit to this number of files per test run by batching
+                                     (for windows set to ~100 to stay below 8192 max command limit, might have bugs from reusing test-env-number
+                                     and summarizing partial results)
         --verbose                    Print debug output
         --verbose-command            Combines options --verbose-process-command and --verbose-rerun-command
         --verbose-process-command    Print the command that will be executed by each process before it begins
@@ -291,21 +307,31 @@ Options are:
         --quiet                      Print only tests output
     -v, --version                    Show Version
     -h, --help                       Show this.
+<!-- rake readme -->
 
-You can run any kind of code in parallel with -e / --exec
+You can run any command in parallel with `-e` / `--exec`
 
-    parallel_test -n 5 -e 'ruby -e "puts %[hello from process #{ENV[:TEST_ENV_NUMBER.to_s].inspect}]"'
-    hello from process "2"
-    hello from process ""
-    hello from process "3"
-    hello from process "5"
-    hello from process "4"
+```bash
+parallel_test -n 3 -e 'ruby -e "puts %[hello from process #{ENV[:TEST_ENV_NUMBER.to_s].inspect}]"'
+hello from process "2"
+hello from process ""
+hello from process "3"
+```
 
-<table>
-<tr><td></td><td>1 Process</td><td>2 Processes</td><td>4 Processes</td></tr>
-<tr><td>RSpec spec-suite</td><td>18s</td><td>14s</td><td>10s</td></tr>
-<tr><td>Rails-ActionPack</td><td>88s</td><td>53s</td><td>44s</td></tr>
-</table>
+and pass arguments to a command with `--exec-args`
+
+```bash
+parallel_test -n 3 --exec-args echo
+spec/a_spec.rb spec/b_spec.rb 
+spec/c_spec.rb spec/d_spec.rb
+spec/e_spec.rb
+```
+
+and run multiple commands by using `sh` and `--exec-args`
+
+```bash
+parallel_test -n 3 --exec-args "sh -c \"echo 'hello world' && rspec \$@\" --"
+```
 
 TIPS
 ====
@@ -333,6 +359,8 @@ TIPS
    e.g. `config.cache_store = ..., namespace: "test_#{ENV['TEST_ENV_NUMBER']}"`
  - Debug errors that only happen with multiple files using `--verbose` and [cleanser](https://github.com/grosser/cleanser)
  - `export PARALLEL_TEST_PROCESSORS=13` to override default processor count
+ - `export PARALLEL_TEST_MULTIPLY_PROCESSES=.5` to override default processor multiplier
+ - `export PARALLEL_RAILS_ENV=environment_name` to override the default `test` environment
  - Shell alias: `alias prspec='parallel_rspec -m 2 --'`
  - [Spring] Add the [spring-commands-parallel-tests](https://github.com/DocSpring/spring-commands-parallel-tests) gem to your `Gemfile` to get `parallel_tests` working with Spring.
  - `--first-is-1` will make the first environment be `1`, so you can test while running your full suite.<br/>
@@ -343,6 +371,7 @@ TIPS
  - [Capybara setup](https://github.com/grosser/parallel_tests/wiki)
  - [Sphinx setup](https://github.com/grosser/parallel_tests/wiki)
  - [Capistrano setup](https://github.com/grosser/parallel_tests/wiki/Remotely-with-capistrano) let your tests run on a big box instead of your laptop
+ - Rails vs `ArgumentError: secret_key_base`: use `config.secret_key_base = Random.hex(64)`, see [rails issue](https://github.com/rails/rails/issues/53661)
 
 Contribute your own gotchas to the [Wiki](https://github.com/grosser/parallel_tests/wiki) or even better open a PR :)
 
@@ -444,6 +473,9 @@ inspired by [pivotal labs](https://blog.pivotal.io/labs/labs/parallelize-your-rs
  - [Josh Westbrook](https://github.com/joshwestbrook)
  - [Jay Dorsey](https://github.com/jaydorsey)
  - [hatsu](https://github.com/hatsu38)
+ - [Mark Huk](https://github.com/vimutter)
+ - [Johannes Vetter](https://github.com/johvet)
+ - [Michel Filipe](https://github.com/mfilipe)
 
 [Michael Grosser](http://grosser.it)<br/>
 michael@grosser.it<br/>

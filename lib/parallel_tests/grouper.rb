@@ -77,12 +77,19 @@ module ParallelTests
 
       private
 
+      def specified_groups(options)
+        groups = options[:specify_groups]
+        return groups if groups != '-'
+
+        $stdin.read.chomp
+      end
+
       def single_group(tests, options)
         in_even_groups_by_size(scenarios_with_size(tests, options), 1, options)
       end
 
       def specify_groups(items, num_groups, options, groups)
-        specify_test_process_groups = options[:specify_groups].split('|')
+        specify_test_process_groups = specified_groups(options).split('|')
         if specify_test_process_groups.count > num_groups
           raise 'Number of processes separated by pipe must be less than or equal to the total number of processes'
         end

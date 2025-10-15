@@ -4,11 +4,9 @@ require "parallel_tests/test/runner"
 module ParallelTests
   module RSpec
     class Runner < ParallelTests::Test::Runner
-      DEV_NULL = (WINDOWS ? "NUL" : "/dev/null")
       class << self
         def run_tests(test_files, process_number, num_processes, options)
-          cmd = [*executable, *options[:test_options], *color, *spec_opts, *test_files]
-          execute_command(cmd, process_number, num_processes, options)
+          execute_command(build_command(test_files, options), process_number, num_processes, options)
         end
 
         def determine_executable
@@ -41,6 +39,10 @@ module ParallelTests
 
         def line_is_result?(line)
           line =~ /\d+ examples?, \d+ failures?/
+        end
+
+        def build_test_command(file_list, options)
+          [*executable, *options[:test_options], *color, *spec_opts, *file_list]
         end
 
         # remove old seed and add new seed

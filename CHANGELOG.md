@@ -2,11 +2,85 @@
 
 ## Unreleased
 
+only add here if you are working on a PR
+
 ### Breaking Changes
 
 ### Added
 
 ### Fixed
+
+## 5.4.0 - 2025-08-01
+
+### Added
+- Rake tasks will prioritize the `PARALLEL_RAILS_ENV` value over the default `test` environment
+
+## 5.3.1 - 2025-07-23
+
+### Fixed
+- The `--multiply-processes` option was being parsed into `options[:multiply-processes]` but was being referenced as `options[:multiply]` in the code
+
+## 5.3.0 - 2025-05-30
+
+### Added
+- The `--exec-args` option, which allows users to run shell commands in parallel with test files as arguments
+
+## 5.2.0 - 2025-05-08
+
+### Added
+- The `specify-groups` option supports reading from STDIN when set to `-`
+
+## 5.1.0 - 2025-03-09
+
+### Fixed
+- Restored jruby support by restoring ruby 3.1 support
+
+## 5.0.1 - 2025-03-05
+
+### Fixed
+- Fix Cucumber failures logger when a runner doesn't have any failed examples
+
+## 5.0.0 - 2025-03-01
+
+### Breaking Changes
+- dropped ruby 3.0 and 3.1, added ruby 3.4
+
+## 4.10.1 - 2025-03-01
+
+### Fixed
+
+- reverted determine_number_of_processes rename since that broke dependencies
+
+## 4.10.0 - 2025-02-28
+
+### Added
+
+- Allow processor multiplier (flag: `-m` or `--multiply-processes`) to be set via the environment variable `PARALLEL_TEST_MULTIPLY_PROCESSES`
+
+## 4.9.1 - 2025-02-19
+
+### Fixed
+
+- Fix output of Cucumber failures logger. Previously, an event handler inherited from `Cucumber::Formatter::Rerun` would improperly join failures (e.g. `feature/one.feature:1feature/two.feature:1`). Now failures are separated with a single space.
+
+## 4.9.0 - 2025-01-09
+
+### Fixed
+
+- check ActiveRecord version instead of Rails
+
+## 4.8.0 - 2025-01-03
+
+### Added
+
+- add --test-file-limit option for huge windows setups that breaks command length limit
+
+## 4.7.2 - 2024-09-09
+
+### Fixed
+
+- Restore support for passing custom command lines as PARALLEL_TESTS_EXECUTABLE.
+- dropped ruby 2.7 support
 
 ## 4.7.1 - 2024-04-25
 

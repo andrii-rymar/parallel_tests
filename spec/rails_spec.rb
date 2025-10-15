@@ -13,9 +13,9 @@ describe 'rails' do
 
   Dir["spec/fixtures/rails*"].each do |folder|
     rails = File.basename(folder)
-    next if RUBY_VERSION >= "3.1.0" && rails < "rails70" # https://github.com/rails/rails/issues/43998
 
     it "can create and run #{rails}" do
+      skip 'ruby 3.1 is not supported by rails 72' if RUBY_VERSION < "3.2.0" && rails == "rails72"
       skip 'rails fixtures are not set up for java' if RUBY_PLATFORM == "java"
 
       Dir.chdir("spec/fixtures/#{rails}") do
