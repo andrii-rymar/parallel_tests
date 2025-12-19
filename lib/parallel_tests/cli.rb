@@ -175,6 +175,13 @@ module ParallelTests
       puts "#{pluralize(num_processes, 'process')} for #{pluralize(num_tests, name)}, ~ #{pluralize(tests_per_process, name)} per process"
     end
 
+    def report_groups_duration(groups)
+      puts "Expected duration:"
+      groups.each_with_index do |group, index|
+        puts "Group [#{index}]: #{group.sum { |scenario| scenario[1] }}"
+      end
+    end
+
     def pluralize(n, singular)
       if n == 1
         "1 #{singular}"
